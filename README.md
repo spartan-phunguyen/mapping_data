@@ -24,30 +24,42 @@ The application uses a sophisticated timestamp-based matching algorithm:
 
 ## 📁 Project Structure
 
-The application is organized into multiple modules, each with a clear purpose:
+The application is organized into a modular structure with clear separation of concerns:
 
 ```
-├── config.py              # Configuration constants and settings
-├── s3_client.py           # S3 operations (fetching images, extracting user IDs)
-├── langfuse_client.py     # Langfuse operations (fetching traces, time filtering)
-├── matching_engine.py     # Core matching logic between Langfuse and S3
-├── display_utils.py       # Display and formatting utilities
-├── json_exporter.py       # JSON export functionality
-├── main.py               # Main application entry point
-├── requirements.txt      # Python dependencies
-└── README.md            # This file
+mapping_data/
+├── client/                    # External service clients
+│   ├── s3_client.py          # AWS S3 operations (images, user extraction)
+│   └── langfuse_client.py    # Langfuse operations (traces, time filtering)
+├── util/                      # Core utilities and business logic
+│   ├── matching_engine.py    # 1-to-1 matching algorithm with timezone normalization
+│   └── display_utils.py      # Console display and formatting utilities
+├── exporter/                  # Data export modules
+│   ├── json_exporter.py      # JSON export with comprehensive metadata
+│   └── dataframe_exporter.py # DataFrame/CSV export for successful pairs
+├── results/                   # Auto-created export directories
+│   ├── json/                 # JSON export files
+│   └── csv/                  # DataFrame CSV export files
+├── config.py                  # Configuration constants and settings
+├── main.py                   # Main application entry point
+├── requirements.txt          # Python dependencies (includes pandas)
+└── README.md                # Documentation
 ```
 
 ## 🚀 Features
 
 - **Smart Matching**: Start with Langfuse users who have traces, then match with S3 images
+- **Advanced 1-to-1 Matching**: Minimal duration algorithm ensuring each image maps to closest preceding trace
+- **Timezone Normalization**: All timestamps normalized to UTC+7 for accurate comparisons
 - **Time Filtering**: Filter traces by time period (1 day, 7 days, 14 days, 1 month)
-- **Detailed Views**: View comprehensive information for specific users
-- **JSON Export**: Export results to structured JSON files with metadata
-- **Interactive Interface**: User-friendly menu system
-- **Batch Mode**: Non-interactive mode for automation
-- **Statistics**: Calculate match rates and provide comprehensive analytics
-- **Flow Detection**: Automatically detects and handles different data flow types
+- **Dual Export Formats**: 
+  - **JSON Export**: Complete results with comprehensive metadata
+  - **DataFrame Export**: Successful pairs with trace details (input, prompt, output, cost, model)
+- **Organized File Structure**: Auto-creates `results/json/` and `results/csv/` directories
+- **Interactive Interface**: User-friendly menu system with detailed statistics
+- **Batch Mode**: Non-interactive automation with automatic DataFrame export
+- **Rich Analytics**: Match rates, cost analysis, time difference statistics
+- **Modular Architecture**: Clean separation of clients, utilities, and exporters
 
 ## 📋 Prerequisites
 
@@ -148,66 +160,93 @@ Users with S3 images: 6
 
 MATCHING RESULTS SUMMARY
 ================================================================================
-Time Filter: Past 1 day(s)
+Time Filter: Past 1 day(s) (UTC+7 normalized)
 Total Users: 8
 Users with both images and traces: 5
 Users without matches: 3
 Total Images: 15
 Total Traces: 25
+Total Matched Pairs: 12
 Match Rate: 62.5%
+Pair Match Efficiency: 80.0%
 
 SUCCESSFUL MATCHES (5 users):
 --------------------------------------------------------------------------------
-User ID                                  | Images   | Traces   | Latest Image
+User ID                                  | Images   | Traces   | Pairs    | Latest Image UTC+7
 --------------------------------------------------------------------------------
-0025fd1f-f5b7-4dcb-8c3e-68f8bd409e46     | 3        | 5        | 2025-01-15 09:30
+0025fd1f-f5b7-4dcb-8c3e-68f8bd409e46     | 3        | 5        | 3        | 2025-01-15 16:30 UTC+7
 
-TRACES WITHOUT IMAGES (3 users):
-------------------------------------------------------------
-User ID                                  | Traces   | Latest Trace
-------------------------------------------------------------
-user-abc-123                            | 2        | 2025-01-15 10:15
+OPTIONS:
+1. View detailed match for a specific user
+2. Export results to JSON
+3. Export successful pairs to CSV (DataFrame)
+4. Try different time filter
+5. Exit
 ```
 
-### JSON Export Structure
+### Export Outputs
+
+**JSON Export** (`results/json/enhanced_meal_mapping_results_YYYYMMDD_HHMMSS.json`):
 ```json
 {
   "metadata": {
-    "export_timestamp": "2025-01-15T10:30:00.000Z",
+    "export_timestamp": "2025-01-31T17:30:00+07:00",
     "time_filter": "Past 1 day",
-    "application_version": "1.0.0",
-    "export_type": "meal_mapping_results",
-    "flow_type": "new_flow"
+    "application_version": "2.0.0",
+    "export_type": "enhanced_meal_mapping_results",
+    "matching_algorithm": "minimal_duration_1to1"
   },
   "summary": {
     "total_users": 8,
     "users_with_matches": 5,
-    "users_without_matches": 3,
+    "users_without_counterpart": 3,
     "total_images": 15,
     "total_traces": 25,
-    "match_rate_percentage": 62.5,
-    "users_with_images_but_no_traces": 0,
-    "users_with_traces_but_no_images": 3
+    "total_matched_pairs": 12,
+    "match_rate": 62.5,
+    "pair_match_efficiency": 80.0
   },
   "successful_matches": [
     {
       "user_id": "0025fd1f-f5b7-4dcb-8c3e-68f8bd409e46",
+      "matched_pairs_count": 3,
       "image_count": 3,
       "trace_count": 5,
-      "images": [...],
-      "traces": [...]
+      "matched_pairs": [
+        {
+          "image": {...},
+          "trace": {...},
+          "trace_timestamp": "2025-01-31T16:25:00+07:00",
+          "image_timestamp": "2025-01-31T16:30:00+07:00",
+          "time_difference_seconds": 300
+        }
+      ],
+      "unused_traces": [...],
+      "unmatched_images": [...]
     }
   ],
-  "users_without_matches": [
+  "users_without_counterpart": [
     {
       "user_id": "user-abc-123",
       "trace_count": 2,
       "traces": [...],
-      "type": "traces_without_images"
+      "missing_type": "images"
     }
   ]
 }
 ```
+
+**DataFrame CSV Export** (`results/csv/successful_pairs_dataframe_YYYYMMDD_HHMMSS.csv`):
+```csv
+user_id,trace_id,trace_name,input,prompt,output,cost,model_name,total_cost,image_name,image_url,trace_timestamp,image_timestamp
+0025fd1f-f5b7-4dcb-8c3e-68f8bd409e46,trace-abc-123,meal_analysis,"analyze this meal image","You are a nutrition expert...","This meal contains...","0.0023",gpt-4o-mini,0.0145,meal_001.jpg,https://s3.amazonaws.com/...,2025-01-31T16:25:00+07:00,2025-01-31T16:30:00+07:00
+```
+
+The DataFrame export provides:
+- **Langfuse Details**: input, prompt, output, cost, model_name for each trace
+- **Image Information**: image_name, image_url, image_key
+- **Matching Metadata**: timestamps (UTC+7), time differences
+- **User Context**: user_id, trace_id, session_id
 
 ## 🔧 Configuration
 
@@ -232,43 +271,50 @@ TIME_FILTER_OPTIONS = {
 ## 📁 Module Details
 
 ### config.py
-Contains all configuration constants, environment variables, and settings.
+Contains all configuration constants, environment variables, and settings including timezone configuration.
 
-### s3_client.py
-- Initialize S3 client
-- Fetch meal images from S3
+### client/s3_client.py
+- Initialize S3 client with AWS credentials
+- Fetch meal images from S3 with pagination
 - Extract user IDs from S3 object keys
-- Generate public URLs
+- Generate public URLs for images
+- Organize images by user ID
 
-### langfuse_client.py
-- Initialize Langfuse client
-- **NEW**: Fetch all users with traces in time range (paginated)
-- Handle time range calculations
-- Manage time filter options
+### client/langfuse_client.py
+- Initialize Langfuse client with API keys
+- Fetch all users with traces in time range (paginated)
+- UTC+7 timezone normalization for time calculations
+- Handle time filter options and user input
 
-### matching_engine.py
-- **NEW**: Core business logic starting with Langfuse users
-- Match Langfuse users with S3 images (reversed flow)
-- Create standardized data structures
-- Calculate matching statistics for both flow types
+### util/matching_engine.py
+- **Advanced 1-to-1 Matching**: Minimal duration algorithm for image-trace pairs
+- **Timezone Normalization**: UTC+7 for all timestamp comparisons
+- Create enhanced data structures with matched pairs, unused traces, unmatched images
+- Calculate comprehensive statistics including pair match efficiency
 
-### display_utils.py
-- Format console output for new flow
-- **NEW**: Handle both "images without traces" and "traces without images"
-- Display summary tables with flow detection
-- Handle user interactions
+### util/display_utils.py
+- Format console output with UTC+7 timestamps
+- Display enhanced summary tables with matching statistics
+- Handle user interactions and menu navigation
+- Rich formatting for detailed match information
 
-### json_exporter.py
-- Export results to JSON format with flow type detection
-- **NEW**: Handle both old and new flow data structures
-- Validate export data structure
-- Generate timestamped filenames with metadata
+### exporter/json_exporter.py
+- Export comprehensive results to JSON format
+- UTC+7 timezone normalization for all timestamps
+- Enhanced metadata with matching algorithm information
+- Auto-saves to `results/json/` directory
+
+### exporter/dataframe_exporter.py
+- Extract detailed Langfuse trace information (input, prompt, output, cost, model)
+- Create pandas DataFrame for successful image-trace pairs
+- Auto-saves to `results/csv/` directory
+- Rich analytics: cost analysis, time difference statistics
 
 ### main.py
-- Application entry point
-- Coordinate all modules for new flow
-- Handle interactive and batch modes
-- **NEW**: Enhanced welcome message explaining flow
+- Application entry point with modular imports
+- Interactive mode with 5-option menu including DataFrame export
+- **Enhanced Batch Mode**: Automatic JSON + CSV export
+- Organized file structure creation
 
 ## 🔍 Expected Data Structures
 
@@ -290,11 +336,11 @@ meal-images/
 - Traces must be within the specified time range
 - User IDs should match those used in S3 folder structure
 
-**Benefits of New Flow:**
+**Benefits:**
 - More efficient: Only processes users with recent activity
-- Better for time-sensitive analysis
-- Focuses on active users
-- Reduces unnecessary S3 operations
+- Better for time-sensitive analysis with timezone normalization
+- Comprehensive data export for analysis
+- Clean modular codebase for maintainability
 
 ## 🔧 Troubleshooting
 
