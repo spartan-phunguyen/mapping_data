@@ -2,7 +2,7 @@
 
 A Python application that matches meal images stored in AWS S3 with Langfuse traces based on user IDs, with configurable time filtering and JSON, DataFrame export capabilities.
 
-## 🔄 **Application Flow (Updated v2.0)**
+## 🔄 **Application Flow**
 
 **New Efficient Flow:**
 1. **Start with Langfuse**: Fetch all users who have traces within the specified time range
